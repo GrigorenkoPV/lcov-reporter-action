@@ -110935,48 +110935,6 @@ async function getChangedFiles(githubClient, options, context) {
 		.map(file => file.filename)
 }
 
-const REQUESTED_COMMENTS_PER_PAGE = 20;
-
-async function deleteOldComments(github, options, context) {
-	const existingComments = await getExistingComments(github, options, context);
-	for (const comment of existingComments) {
-		coreExports.debug(`Deleting comment: ${comment.id}`);
-		try {
-			await github.issues.deleteComment({
-				owner: context.repo.owner,
-				repo: context.repo.repo,
-				comment_id: comment.id,
-			});
-		} catch (error) {
-			console.error(error);
-		}
-	}
-}
-
-async function getExistingComments(github, options, context) {
-	let page = 0;
-	let results = [];
-	let response;
-	do {
-		response = await github.issues.listComments({
-			issue_number: context.issue.number,
-			owner: context.repo.owner,
-			repo: context.repo.repo,
-			per_page: REQUESTED_COMMENTS_PER_PAGE,
-			page: page,
-		});
-		results = results.concat(response.data);
-		page++;
-	} while (response.data.length === REQUESTED_COMMENTS_PER_PAGE)
-
-	return results.filter(
-		comment =>
-			!!comment.user &&
-			(!options.title || comment.body.includes(options.title)) &&
-			comment.body.includes("Coverage Report"),
-	)
-}
-
 const MAX_COMMENT_CHARS = 65536;
 
 async function main() {
@@ -110991,9 +110949,6 @@ async function main() {
 	const baseFile = core.getInput("lcov-base");
 	const shouldFilterChangedFiles =
 		core.getInput("filter-changed-files").toLowerCase() === "true";
-	const shouldDeleteOldComments =
-		core.getInput("delete-old-comments").toLowerCase() === "true";
-	const postTo = core.getInput("post-to").toLowerCase();
 	const title = core.getInput("title");
 
 	const raw = await require$$0$1.promises.readFile(lcovFile, "utf-8").catch(err => null);
@@ -111038,39 +110993,8 @@ async function main() {
 	const lcov = await parse(raw);
 	const baselcov = baseRaw && (await parse(baseRaw));
 	const body = diff(lcov, baselcov, options).substring(0, MAX_COMMENT_CHARS);
-
-	if (shouldDeleteOldComments) {
-		await deleteOldComments(githubClient, options, context);
-	}
-
-	switch (postTo) {
-		case "comment":
-			if (
-				context.eventName === "pull_request" ||
-				context.eventName === "pull_request_target"
-			) {
-				await githubClient.issues.createComment({
-					repo: context.repo.repo,
-					owner: context.repo.owner,
-					issue_number: context.payload.pull_request.number,
-					body: body,
-				});
-			} else if (context.eventName === "push") {
-				await githubClient.repos.createCommitComment({
-					repo: context.repo.repo,
-					owner: context.repo.owner,
-					commit_sha: options.commit,
-					body: body,
-				});
-			}
-			break
-		case "job-summary":
-			core.summary.addRaw(body);
-			await core.summary.write();
-			break
-		default:
-			core.warning(`Unknown post-to value: '${postTo}'`);
-	}
+	core.summary.addRaw(body);
+	await core.summary.write();
 }
 
 main().catch(function(err) {

@@ -37,22 +37,19 @@ branch. When this is set a diff of the coverage percentages is shown.
 ##### `filter-changed-files` (**Default: false**)
 If set to true, only changed files will be included in the report. Total percentage will still include all files.
 
-##### `delete-old-comments` (**Default: false**)
-If set to true, old comments will be deleted before a new comment is posted
-
 ##### `title` (**Optional**)
 If included, will be added as a title for the comment produced.
 
 ## Example usage
 
 ```yml
-uses: romeovs/lcov-reporter-action@v0.3.1
+uses: GrigorenkoPV/lcov-reporter-action@v0.5.0
 with:
   lcov-file: ./coverage/lcov.info
 ```
 
 ## Acknowledgements
 
-The initial code is based on [ziishaned/jest-reporter-action](https://github.com/ziishaned/jest-reporter-action).
+The initial code is based on [romeovs/lcov-reporter-action](https://github.com/romeovs/lcov-reporter-action).
 
-Changed file retrieval based on [jitterbit/get-changed-files](https://github.com/jitterbit/get-changed-files).
+Job summary patches from [06393993](https://github.com/06393993/lcov-reporter-action).

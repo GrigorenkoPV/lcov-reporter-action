@@ -6,7 +6,6 @@ import path from "path"
 import { parse } from "./lcov"
 import { diff } from "./comment"
 import { getChangedFiles } from "./get_changes"
-import { deleteOldComments } from "./delete_old_comments"
 import { normalisePath } from "./util"
 
 const MAX_COMMENT_CHARS = 65536
@@ -23,9 +22,6 @@ async function main() {
 	const baseFile = core.getInput("lcov-base")
 	const shouldFilterChangedFiles =
 		core.getInput("filter-changed-files").toLowerCase() === "true"
-	const shouldDeleteOldComments =
-		core.getInput("delete-old-comments").toLowerCase() === "true"
-	const postTo = core.getInput("post-to").toLowerCase()
 	const title = core.getInput("title")
 
 	const raw = await fs.readFile(lcovFile, "utf-8").catch(err => null)
@@ -70,39 +66,8 @@ async function main() {
 	const lcov = await parse(raw)
 	const baselcov = baseRaw && (await parse(baseRaw))
 	const body = diff(lcov, baselcov, options).substring(0, MAX_COMMENT_CHARS)
-
-	if (shouldDeleteOldComments) {
-		await deleteOldComments(githubClient, options, context)
-	}
-
-	switch (postTo) {
-		case "comment":
-			if (
-				context.eventName === "pull_request" ||
-				context.eventName === "pull_request_target"
-			) {
-				await githubClient.issues.createComment({
-					repo: context.repo.repo,
-					owner: context.repo.owner,
-					issue_number: context.payload.pull_request.number,
-					body: body,
-				})
-			} else if (context.eventName === "push") {
-				await githubClient.repos.createCommitComment({
-					repo: context.repo.repo,
-					owner: context.repo.owner,
-					commit_sha: options.commit,
-					body: body,
-				})
-			}
-			break
-		case "job-summary":
-			core.summary.addRaw(body)
-			await core.summary.write()
-			break
-		default:
-			core.warning(`Unknown post-to value: '${postTo}'`)
-	}
+	core.summary.addRaw(body)
+	await core.summary.write()
 }
 
 main().catch(function(err) {
